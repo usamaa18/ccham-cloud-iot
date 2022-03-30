@@ -8,6 +8,7 @@
 #include <NTPClient.h>
 #include <WiFiClientSecure.h>
 #include <WiFiUdp.h>
+#include <ESP8266WiFi.h>
 #include "base64.hpp"
 //#include <ArduinoJson.h>
 #include "CloudIoTCoreDevice.h"
@@ -28,6 +29,7 @@ String apiPath;
 
 void setup()
 {
+  ESP.wdtDisable();
   Serial.begin(115200);
   delay(10);
 
@@ -49,8 +51,6 @@ void setup()
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
-
-
   timeClient.begin();
   device = new CloudIoTCoreDevice(
     project_id, location, registry_id, device_id,
@@ -63,10 +63,16 @@ void setup()
 void sendToCloud(unsigned char string[]) {
   WiFiClientSecure wifi;
   wifi.setInsecure();//skip verification
-  Serial.println(timeClient.getEpochTime());
-  String jwt = device->createJWT(timeClient.getEpochTime(), jwt_exp_secs);
+  long long int timeNow = timeClient.getEpochTime();
+  
+  wdt_reset();
+  wdt_disable();
+  String jwt = device->createJWT(timeNow, jwt_exp_secs);
+  wdt_enable(0);
+  wdt_reset();
   unsigned char base64[21]; // 20 bytes for output + 1 for null terminator
   // encode_base64() places a null terminator automatically, because the output is a string
+  
   int base64_length = encode_base64(string, strlen((char *) string), base64);
   String body = String("{\"binary_data\":\"") + (char *) base64 + "\"}";
 
@@ -110,6 +116,6 @@ void loop()
 
   unsigned char string[] = "String example";
   sendToCloud(string);
-  delay(60000);
+  delay(5000);
 
 }
